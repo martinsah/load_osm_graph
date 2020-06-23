@@ -18,10 +18,13 @@ struct tag {
 struct node {
     std::string id;
     uint64_t num;
+    uint32_t norm_num;
     long double lat=0.0;
     long double lon=0.0;
     int roads = 0;
     long double distance = 0.0;
+    bool used_by_road = false;
+
     long double operator-(node const& other) {
         long double dlat = (lat - other.lat)* pi / 180.0;
         long double dlon = (lon - other.lon)* pi / 180.0;
@@ -40,6 +43,11 @@ struct node {
         ss << "<wpt lat=\"" << std::setprecision(10) << lat << "\" lon=\"" << lon << "\"><name>" << name << "</name></wpt>";
         return ss.str();
     }
+    std::string print_trkpt() {
+        std::stringstream ss;
+        ss << "<trkpt lat=\"" << std::setprecision(10) << lat << "\" lon=\"" << lon << "\"><name>" << distance << "</name></trkpt>";
+        return ss.str();
+    }
 };
 
 enum class way_types {
@@ -52,9 +60,10 @@ struct way {
     std::string id;
     std::string name;
     std::vector<node> nodes;
+    std::vector<std::reference_wrapper<node>> v_node_refs;
     std::unordered_map<std::string, std::string>tags;
 
-    std::string get_tag_string_if_exists(std::string key, std::string noname = "<noname>")
+    std::string get_tag_string_if_exists(std::string key, std::string noname = "noname")
     {
         if (tags.count(key))
             return(tags[key]);
@@ -86,6 +95,32 @@ public:
     
     way new_way{};
 
+    void generate_gpx_trks() {
+		uint32_t road_num = 1;
+		for (auto way : roads) {
+			auto road = way.get();
+			auto name = road.get_tag_string_if_exists("name");
+			std::cout << "\n<trk><name>" << name << "</name><number>" << road_num++ << "</number><trkseg>";
+			for (auto nd : road.v_node_refs) {
+				std::cout << "\n\t" << nd.get().print_trkpt();
+			}
+			std::cout << "\n</trkseg></trk>";
+		}
+    }
+
+	void print_road_list()
+	{
+		// print list of roads
+		for (auto way : roads) {
+			auto road = way.get();
+			std::cout << std::endl << road.get_tag_string_if_exists("name");
+			int n = 0;
+			for (auto nd : road.v_node_refs) {
+
+				std::cout << "\n\t" << nd.get().norm_num << ", " << nd.get().distance;
+			}
+		}
+	}
 protected:
     //overrides:
     void on_start_document() override;
